@@ -1,0 +1,58 @@
+---
+- name: Download NIFI tars for installation
+  get_url:
+    url: https://dlcdn.apache.org/nifi/1.14.0/nifi-1.14.0-bin.tar.gz
+    dest: /tmp/nifi-1.14.0-bin.tar.gz
+
+- name: Download NIFI toolkit
+  get_url:
+    url: https://dlcdn.apache.org/nifi/1.14.0/nifi-toolkit-1.14.0-bin.tar.gz
+    dest: /tmp/nifi-toolkit-1.14.0-bin.tar.gz
+
+- name: Create NIFI dir
+  file:
+    path: /opt/nifi
+    state: directory
+
+- name: Unarchive tar
+  unarchive:
+    src: "{{ item }}"
+    dest: /opt/nifi
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+  loop: 
+    - /tmp/nifi-1.14.0-bin.tar.gz
+    - /tmp/nifi-toolkit-1.14.0-bin.tar.gz
+
+- name: Run installer
+  shell: /opt/nifi/bin/nifi.sh install
+
+- name: Generate self signed certs
+  shell:
+    chdir: /opt/nifi
+    cmd: /opt/nifi/bin/tls-toolkit.sh standalone -n "localhost"
+
+- name: Copy certs
+  shell: cp -rv /opt/nifi/localhost/* /opt/nifi/conf/.
+
+- name: Generate client cert
+  shell:
+    chdir: /opt/nifi
+    cmd: /opt/nifi/bin/tls-toolkit.sh standalone -C "CN=admin, OU=NiFi"
+
+#### Load cert into browser, the password is available in /tmp/nifi/CN=admin_OU=NiFi.password
+
+- name: Replace user identity in authorizers.xml
+  xml:
+    path: /opt/nifi/conf/authorizers.xml
+    xpath: /authorizers/userGroupProvider/property[@name="Initial User Identity 1"]
+    value: "CN=admin, OU=NiFi"
+
+- name: Replace user identity in authorizers.xml
+  xml:
+    path: /opt/nifi/conf/authorizers.xml
+    xpath: /authorizers/accessPolicyProvider/property[@name="Initial User Identity"]
+    value: "CN=admin, OU=NiFi"
+
+- name: Start nifi
+  shell: /opt/nifi/bin/nifi.sh start

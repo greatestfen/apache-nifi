@@ -1,0 +1,14 @@
+---
+- name: Install Java
+  yum:
+    name: "java-1.8.0-openjdk-headless"
+    state: present
+  tags: [ java ]
+
+- name: Set java_home
+  shell: echo export JAVA_HOME=$(java -XshowSettings:properties -version 2>&1 > /dev/null | grep 'java.home' | awk '{ print $3 }') >> /root/.bash_profile
+  tags: [ java ]
+
+- name: Source the bash_profile file
+  shell: source /root/.bash_profile
+  tags: [ java ]
